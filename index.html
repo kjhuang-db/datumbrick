@@ -306,7 +306,7 @@
       } = result;
 
       // step1: set total row count
-      document.getElementById('result-header').textContent = `Result Preview (${totalRowCount} rows)`;
+      document.getElementById('result-header').textContent = `Result Preview (total rows: ${totalRowCount})`;
       // step2: render preview table
       document.getElementById('preview-table').innerHTML = tablePreview;
       // step3: attach s3 presigned links
