@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rm -rf dist && esbuild ./index.mjs --out-extension:.js=.mjs --bundle --minify --format=esm --platform=node --target=node18 --outdir=dist"
   },
   "repository": {
     "type": "git",
@@ -15,5 +16,11 @@
   "bugs": {
     "url": "https://github.com/kjhuang-db/datumbrick/issues"
   },
-  "homepage": "https://github.com/kjhuang-db/datumbrick#readme"
+  "homepage": "https://github.com/kjhuang-db/datumbrick#readme",
+  "dependencies": {
+    "@apache-arrow/es2015-esm": "^11.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.17.10"
+  }
 }

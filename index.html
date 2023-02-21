@@ -1,0 +1,286 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>DatumBrick</title>
+  <meta name="description" content="A simple databricks query runner">
+  <meta name="author" content="kaijie.huang">
+
+  <meta property="og:title" content="DatumBrick">
+  <meta property="og:type" content="website">
+  <meta property="og:description" content="A simple databricks query runner">
+
+  <style>
+    @import url(https://fonts.googleapis.com/css?family=Indie+Flower);
+    
+    * {
+      font-family: 'Indie Flower';
+    }
+
+    h1, h3 {
+      margin: 0;
+      padding: 0;
+    }
+
+    #description {
+      color: gray;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    p {
+      margin: 0;
+      padding: 0;
+    }
+
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 22px 10vw;
+      font-size: 24px;
+    }
+
+    button, a, input {
+      font-size: 24px;
+    }
+
+    button {
+      cursor: pointer;
+      margin: 0 4px
+    }
+
+    /* --main-- */
+
+    #main-content {
+      width: 720px;
+      margin-top: 40px;
+    }
+
+    /* --input-- */
+    #input-section {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #statements {
+      width: 100%;
+      margin-right: 20px;
+    }
+
+    /* --result-- */
+    #result-section {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #preview-section {
+      width: 100%;
+      overflow-x: scroll;
+
+      margin-bottom: 10px;
+    }
+
+    table, th, td {
+      width: 100%;
+      border: 1px solid black;
+      border-collapse: collapse;
+    }
+
+    #result-footer {
+      display: flex;
+    }
+
+
+    #loading-indicator {
+      position: absolute;
+      top: 300px;
+      width: 300px;
+      display: none;
+      flex-direction: column;
+      text-align: center;
+    }
+
+    /* borrow from https://codemyui.com/hand-sketched-3d-wireframe-buttons */
+    .btn span {
+      background: #FFF;
+      display: block;
+      padding: 5px 15px;
+      border-radius: 5px;
+      border: 2px solid #000;
+    }
+    .btn:hover {
+      box-shadow: 0 2px 0 #000, 0 2px 0px 2px #b0b0b0;
+    }
+    .btn:active {
+      top: 4px;
+      padding-bottom: 0px;
+      box-shadow: 0 1px 0 #000;
+    }
+    .btn {
+      position: relative;
+      font: normal 22px/25px "Indie Flower";
+      text-transform: uppercase;
+      color: #000;
+      text-decoration: none;
+      padding-bottom: 3px;
+      border-radius: 5px;
+      box-shadow: 0 2px 0 #000;
+      transition: padding 0.1s, box-shadow 0.1s, top 0.1s;
+      background-image: url('data:image/gif;base64,R0lGODlhBAAEAIABAAAAAAAAACH/C1hNUCBEYXRhWE1QPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS4wLWMwNjEgNjQuMTQwOTQ5LCAyMDEwLzEyLzA3LTEwOjU3OjAxICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIiB4bWxuczpzdFJlZj0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL3NUeXBlL1Jlc291cmNlUmVmIyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ1M1LjEgV2luZG93cyIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDo5NUY1OENCRDdDMDYxMUUyOTEzMEE1MEM5QzM0NDVBMyIgeG1wTU06RG9jdW1lbnRJRD0ieG1wLmRpZDo5NUY1OENCRTdDMDYxMUUyOTEzMEE1MEM5QzM0NDVBMyI+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOjk1RjU4Q0JCN0MwNjExRTI5MTMwQTUwQzlDMzQ0NUEzIiBzdFJlZjpkb2N1bWVudElEPSJ4bXAuZGlkOjk1RjU4Q0JDN0MwNjExRTI5MTMwQTUwQzlDMzQ0NUEzIi8+IDwvcmRmOkRlc2NyaXB0aW9uPiA8L3JkZjpSREY+IDwveDp4bXBtZXRhPiA8P3hwYWNrZXQgZW5kPSJyIj8+Af/+/fz7+vn49/b19PPy8fDv7u3s6+rp6Ofm5eTj4uHg397d3Nva2djX1tXU09LR0M/OzczLysnIx8bFxMPCwcC/vr28u7q5uLe2tbSzsrGwr66trKuqqainpqWko6KhoJ+enZybmpmYl5aVlJOSkZCPjo2Mi4qJiIeGhYSDgoGAf359fHt6eXh3dnV0c3JxcG9ubWxramloZ2ZlZGNiYWBfXl1cW1pZWFdWVVRTUlFQT05NTEtKSUhHRkVEQ0JBQD8+PTw7Ojk4NzY1NDMyMTAvLi0sKyopKCcmJSQjIiEgHx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCAQAAIfkEAQAAAQAsAAAAAAQABAAAAgYEEpdoeQUAOw==');
+    }
+
+  </style>
+</head>
+
+<body>
+  <h1>DatumBrick</h1>
+  <div id="description">A simple query runner by Databricks REST API + AWS Lambda</div>
+  <p id="welcome">refresh to login</p>
+
+  <div id="main-content">
+    <div>
+      <div id="input-section">
+        <input 
+          name="statements"
+          id="statements"
+          type="text"
+          placeholder="select * from hive_metastore.default.weather limit 100"
+          value="select * from hive_metastore.default.weather limit 100"
+        ></input>
+        <!-- <button id="run-button" disabled>Run</button> -->
+        
+        <a href="#" class="btn" id="run-button"><span>Run</span></a>
+      </div>
+      <div id="result-section">
+        <h3 id="result-header"></h3>
+        <div id="preview-section">
+          <table id="preview-table">
+    
+          </table>
+        </div>
+        <div id="result-footer">
+          <div id="s3links"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="loading-indicator" >
+    <img src="lakeloading.gif" alt="Animation Loop Sticker by Pablo Cuello">
+      <p>On the Lake . . .</p>
+  </div>
+
+  <script>
+    // global
+    let user = undefined;
+    let lastStatements = undefined;
+    // end of global
+
+    // lambda client
+    const lambda = 'https://sgkybaydhor2mldxoe6dwhysaq0bmrdg.lambda-url.us-west-2.on.aws';
+    async function lambaLogin(token) {
+      return await fetch(`${lambda}/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        mode: 'cors',
+        method: 'POST'
+      }).then((response) => response.json())
+    }
+
+    async function lambaRunStatements(token, statements) {
+      return await fetch(`${lambda}/run_statements`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        mode: 'cors',
+        method: 'POST',
+        body: JSON.stringify({
+          statements
+        })
+      }).then((response) => response.json())
+    }
+    // end of lambda client
+
+
+    async function bootStrap() {
+      user = JSON.parse(localStorage.getItem('datumbrick-user'));
+      if (!user) {
+        const token = window.prompt("Please enter your E2 (go/e2/dogfood) Personal Access Token");
+        if (token) {
+          loginUser = await lambaLogin(token);
+          user = {
+            token,
+            id: loginUser.id,
+            name: loginUser.userName
+          }
+          localStorage.setItem('datumbrick-user', JSON.stringify(user))
+        }
+      }
+      if (user) {
+        document.getElementById('welcome').innerHTML = `Hello <strong>${user.name}</strong>`;
+        setButtonsDisabled(false);
+        document.getElementById('run-button').addEventListener('click', runStatements);
+      }
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
+      document.getElementById('run-button').style["pointer-events"] = disabled ? "none" : "auto";
+    }
+
+    function setLoading(loading) {
+      const loadingIndicator = document.getElementById('loading-indicator');
+      const mainContent = document.getElementById('main-content');
+      loadingIndicator.style.display = loading ? 'flex' : 'none';
+      mainContent.style.opacity = loading ? 0.3 : 1;
+      setButtonsDisabled(loading);
+    }
+
+    async function runStatements() {
+      console.log('runn')
+      const input = document.getElementById("statements").value;
+      // TODO: do some checking
+
+      // clean previous? and show loading
+      setLoading(true);
+
+      // run
+      const result = await lambaRunStatements(user.token, input);
+
+      const {
+        totalRowCount,
+        s3Locations,
+        tablePreview
+      } = result;
+
+      // step1: set total row count
+      document.getElementById('result-header').textContent = `Result Preview (${totalRowCount} rows)`;
+      // step2: render preview table
+      document.getElementById('preview-table').innerHTML = tablePreview;
+      // step3: attach full result download links
+      const footer = document.getElementById('result-footer');
+      let footerHTML = '';
+      s3Locations.forEach((location, index) => {
+        const buttonText = index === 0 ? "Download full result (link expires soon)" : `More${index}`;
+        footerHTML += `<a href="${location.url}" target="_blank"><button>${buttonText}</button></a>`;
+      });
+      footer.innerHTML = footerHTML;
+
+      setLoading(false);
+    }
+
+
+    bootStrap();
+  </script>
+</body>
+</html>
