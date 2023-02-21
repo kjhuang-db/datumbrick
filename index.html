@@ -72,6 +72,11 @@
       margin-right: 20px;
     }
 
+    #run-button {
+      pointer-events: none;
+      opacity: 0.3;
+    }
+
     /* --result-- */
     #result-section {
       margin-top: 10px;
@@ -141,7 +146,7 @@
 
 <body>
   <h1>DatumBrick</h1>
-  <div id="description">A simple query runner by Databricks REST API + AWS Lambda</div>
+  <div id="description">A simple query runner by Databricks SQL Execution API + AWS Lambda</div>
   <p id="welcome">refresh to login</p>
 
   <div id="main-content">
@@ -180,7 +185,8 @@
   <script>
     // global
     let user = undefined;
-    let lastStatements = undefined;
+    // frugal LRU cache
+    let cachedResults = new Map();
     // end of global
 
     // lambda client
@@ -214,48 +220,84 @@
 
     async function bootStrap() {
       user = JSON.parse(localStorage.getItem('datumbrick-user'));
+      console.log('who', user);
       if (!user) {
         const token = window.prompt("Please enter your E2 (go/e2/dogfood) Personal Access Token");
+
         if (token) {
-          loginUser = await lambaLogin(token);
-          user = {
-            token,
-            id: loginUser.id,
-            name: loginUser.userName
+          document.getElementById('welcome').innerHTML = `Loading...`;
+
+          try {
+            const loginUser = await lambaLogin(token);
+            // save user only if a valid user response
+            if (loginUser && loginUser.id) {
+              user = {
+                token,
+                id: loginUser.id,
+                name: loginUser.userName
+              }
+              localStorage.setItem('datumbrick-user', JSON.stringify(user))
+            }
+          } catch (e) {
+            console.log('something went wrong', e);
           }
-          localStorage.setItem('datumbrick-user', JSON.stringify(user))
+
         }
       }
       if (user) {
         document.getElementById('welcome').innerHTML = `Hello <strong>${user.name}</strong>`;
         setButtonsDisabled(false);
         document.getElementById('run-button').addEventListener('click', runStatements);
+      } else {
+        document.getElementById('welcome').innerHTML = `Woops ! cannot find you, refresh to try again`;
       }
     }
 
     function setButtonsDisabled(disabled) {
       document.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
       document.getElementById('run-button').style["pointer-events"] = disabled ? "none" : "auto";
+      document.getElementById('run-button').style["opacity"] = disabled ? 0.3 : 1;
     }
 
     function setLoading(loading) {
       const loadingIndicator = document.getElementById('loading-indicator');
       const mainContent = document.getElementById('main-content');
       loadingIndicator.style.display = loading ? 'flex' : 'none';
-      mainContent.style.opacity = loading ? 0.3 : 1;
+      mainContent.style.opacity = loading ? 0.2 : 1;
       setButtonsDisabled(loading);
     }
 
     async function runStatements() {
-      console.log('runn')
       const input = document.getElementById("statements").value;
-      // TODO: do some checking
 
-      // clean previous? and show loading
+      if (!input) {
+        return;
+      }
+
+      // clean previous?
+      
+      // show loading
       setLoading(true);
 
-      // run
-      const result = await lambaRunStatements(user.token, input);
+      let result = undefined
+      
+      // do frugal check
+      if (cachedResults.has(input)) {
+        result = cachedResults.get(input);
+      } else {
+        try {
+          result = await lambaRunStatements(user.token, input);
+        } catch (e) {
+          console.log('server side error');
+        }
+        if (result) {
+          cachedResults.set(input, result);
+        } else {
+          alert("Woops something went wrong");
+          setLoading(false);
+          return;
+        }
+      }
 
       const {
         totalRowCount,
@@ -267,7 +309,7 @@
       document.getElementById('result-header').textContent = `Result Preview (${totalRowCount} rows)`;
       // step2: render preview table
       document.getElementById('preview-table').innerHTML = tablePreview;
-      // step3: attach full result download links
+      // step3: attach s3 presigned links
       const footer = document.getElementById('result-footer');
       let footerHTML = '';
       s3Locations.forEach((location, index) => {
